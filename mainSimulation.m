@@ -135,8 +135,6 @@ filteredPosition = initialEndEffectorTransform(1:3, 4);
 previousRotationForJacobian = initialEndEffectorTransform(1:3, 1:3);
 filteredEndEffectorVelocity = zeros(6, 1);
 
-% Integral-error term for the error-monitoring function:
-% psi(t) = nu(t) + varsigma * integral_0^t nu(delta) d(delta)
 varsigmaPosition = 0.01;
 varsigmaOrientation = 0.01;
 
@@ -160,11 +158,9 @@ for idx = 1:numSteps
     positionError = currentPosition - desiredPositionCurrent;
     orientationError = 0.5 * vee(currentRotation * desiredRotationCurrent' - desiredRotationCurrent * currentRotation');
 
-    % Update integral of tracking errors
     positionErrorIntegral = positionErrorIntegral + positionError * dt;
     orientationErrorIntegral = orientationErrorIntegral + orientationError * dt;
 
-    % Error-monitoring functions with integral terms
     psiPosition = positionError + varsigmaPosition * positionErrorIntegral;
     psiOrientation = orientationError + varsigmaOrientation * orientationErrorIntegral;
 
