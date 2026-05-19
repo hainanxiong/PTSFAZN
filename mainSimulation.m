@@ -135,6 +135,13 @@ filteredPosition = initialEndEffectorTransform(1:3, 4);
 previousRotationForJacobian = initialEndEffectorTransform(1:3, 1:3);
 filteredEndEffectorVelocity = zeros(6, 1);
 
+% Integral-error term for the error-monitoring function:
+% psi(t) = nu(t) + varsigma * integral_0^t nu(delta) d(delta)
+varsigmaPosition = 0.01;
+varsigmaOrientation = 0.01;
+
+positionErrorIntegral = zeros(3, 1);
+orientationErrorIntegral = zeros(3, 1);
 
 for idx = 1:numSteps
     currentTransform = robot.fkine(q).T;
@@ -153,16 +160,24 @@ for idx = 1:numSteps
     positionError = currentPosition - desiredPositionCurrent;
     orientationError = 0.5 * vee(currentRotation * desiredRotationCurrent' - desiredRotationCurrent * currentRotation');
 
-    activatedPositionError = zdActivation(positionError, rhoZN);
-    activatedOrientationError = zdActivation(orientationError, rhoZN);
+    % Update integral of tracking errors
+    positionErrorIntegral = positionErrorIntegral + positionError * dt;
+    orientationErrorIntegral = orientationErrorIntegral + orientationError * dt;
+
+    % Error-monitoring functions with integral terms
+    psiPosition = positionError + varsigmaPosition * positionErrorIntegral;
+    psiOrientation = orientationError + varsigmaOrientation * orientationErrorIntegral;
+
+    activatedPositionError = zdActivation(psiPosition, rhoZN);
+    activatedOrientationError = zdActivation(psiOrientation, rhoZN);
 
     thetaMatrix = epsTheta * eye(numJoints);
     Q = [thetaMatrix, Jp', Jo';
          -Jp, zeros(positionDim), zeros(positionDim, orientationDim);
          -Jo, zeros(orientationDim, positionDim), zeros(orientationDim)];
 
-    etaPosition = fuzzyErrorToEta(norm(positionError));
-    etaOrientation = fuzzyErrorToEta(norm(orientationError));
+    etaPosition = fuzzyErrorToEta(norm(psiPosition));
+    etaOrientation = fuzzyErrorToEta(norm(psiOrientation));
 
     auxiliaryVector = 10 * ones(numJoints, 1);
     B = [auxiliaryVector;
